@@ -15,7 +15,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'db
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 ALLOWED_EXTENSIONS = ['csv']
-db.create_all()
 
 
 def allowed_file(filename):
@@ -40,6 +39,9 @@ class ApiResults(db.Model):
         return {"points": self.points,
                 "links": self.links,
                 "result_id": self.uuid}
+
+
+db.create_all()
 
 
 @app.route('/')
@@ -131,4 +133,3 @@ def get_result(uuid_code):
     result = ApiResults.query.get(uuid_code).serialize()
 
     return json.dumps(dict(result), ensure_ascii=False)
-
