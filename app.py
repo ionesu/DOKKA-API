@@ -10,7 +10,7 @@ from math import sin, cos, sqrt, atan2, radians
 
 app = Flask(__name__, template_folder='template')
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['UPLOAD_FOLDER'] = os.path.dirname(os.path.abspath(__file__)) + '/upload/'
+app.config['UPLOAD_FOLDER'] = basedir + '/upload/'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'db.sqlite')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -49,24 +49,22 @@ def upload_form():
     return render_template('main.html')
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['POST'])
 def index():
     if request.method == 'POST':
         file = request.files['file']
-        if 'file' not in request.files or file.filename == '':
-            print('Failed to receive file. Or format is not supported.')
-
-            return redirect(request.url)
 
         if file and allowed_file(file.filename):
             filename = file.filename
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
             return get_addresses(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        else:
+            return redirect(request.url)
 
 
-@app.route("/getAddresses", methods=['POST'])
-def get_addresses(points):
+@app.route("/api/getAddresses", methods=['POST'])
+def get_addresses(file_with_points):
     """
     /api/getAddresses POST API. It is a HTTP POST method that enables to upload a
     CSV file with point locations ( LAT/LON ).
@@ -85,35 +83,38 @@ def get_addresses(points):
 
         return radius * c
 
-    with open(points, newline='') as csv_file:
+    with open(file_with_points, newline='') as csv_file:
         points = []
         points_address = []
         links = []
+        # Stop first iteration of cycle, when we have only one first point in points list.
+        start_calculate = False
 
         for row in csv.DictReader(csv_file, delimiter=';'):
-            p = {"name": list(row.items())[0][1], "address": (list(row.items())[1][1], list(row.items())[2][1])}
-            points.append(p)
+            point_coordinate = {"name": list(row.items())[0][1],
+                                "address": (list(row.items())[1][1], list(row.items())[2][1])}
+            points.append(point_coordinate)
+            # Convert latitude and longitude of the point into the address.
             geo = Nominatim(user_agent="Ivan_dokka")
             location = geo.reverse(f'{list(row.items())[1][1]}, {list(row.items())[2][1]}')
-            b = {"name": list(row.items())[0][1], "address": location.address.encode().decode('UTF-8')}
-            points_address.append(b)
+            point_address = {"name": list(row.items())[0][1],
+                             "address": location.address.encode().decode('UTF-8')}
+            points_address.append(point_address)
 
-    z = []
-    for point in points:
-        for v in point.values():
-            z.append(v)
-
-    for i in range(0, len(z) - 1, 2):
-        if i > 0:
-            for j in range(i - 2, 0, -2):
-                links.append({'name': z[i] + z[j],
-                              'distance': calculate_distance(float(z[i + 1][0]), float(z[i + 1][1]), float(z[j + 1][0]),
-                                                             float(z[j + 1][1]))})
-        else:
-            for j in range(i + 2, len(z), 2):
-                links.append({'name': z[i] + z[j],
-                              'distance': calculate_distance(float(z[i + 1][0]), float(z[i + 1][1]), float(z[j + 1][0]),
-                                                             float(z[j + 1][1]))})
+            if start_calculate:
+                # Find the distance between all points in the list of points, except the last one we just added.
+                for point in points[:-1]:
+                    # Add in links list distance between last point in the points list and all points before.
+                    links.append({'name': point['name'] + points[-1]['name'],
+                                  'distance': calculate_distance(
+                                      float(point['address'][0]),
+                                      float(point['address'][1]),
+                                      float(points[-1]['address'][0]),
+                                      float(points[-1]['address'][1]))
+                                  })
+            # After we add first point in points list - we can start calculate distance,
+            # because on the next step we will have 2 points.
+            start_calculate = True
 
     uuid_db = str(uuid.uuid4())
     new_result = ApiResults(uuid_db, str(points_address), str(links))
@@ -124,7 +125,7 @@ def get_addresses(points):
     return json.dumps(dict(points=points_address, links=links, result_id=uuid_db), ensure_ascii=False)
 
 
-@app.route("/getResult/<uuid_code>", methods=['GET'])
+@app.route("/api/getResult/<uuid_code>", methods=['GET'])
 def get_result(uuid_code):
     """
     /api/getResult GET API . It is an API to retrieve results of “/api/getAddresses” API
