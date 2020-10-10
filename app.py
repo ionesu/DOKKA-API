@@ -91,9 +91,8 @@ def get_addresses(file_with_points):
         start_calculate = False
 
         for row in csv.DictReader(csv_file, delimiter=';'):
-            point_coordinate = {"name": list(row.items())[0][1],
-                                "address": (list(row.items())[1][1], list(row.items())[2][1])}
-            points.append(point_coordinate)
+
+            points.append(row)
             # Convert latitude and longitude of the point into the address.
             geo = Nominatim(user_agent="Ivan_dokka")
             location = geo.reverse(f'{list(row.items())[1][1]}, {list(row.items())[2][1]}')
@@ -105,12 +104,12 @@ def get_addresses(file_with_points):
                 # Find the distance between all points in the list of points, except the last one we just added.
                 for point in points[:-1]:
                     # Add in links list distance between last point in the points list and all points before.
-                    links.append({'name': point['name'] + points[-1]['name'],
+                    links.append({'name': point['Points'] + points[-1]['Points'],
                                   'distance': calculate_distance(
-                                      float(point['address'][0]),
-                                      float(point['address'][1]),
-                                      float(points[-1]['address'][0]),
-                                      float(points[-1]['address'][1]))
+                                      float(point['Latitude']),
+                                      float(point['Longitude']),
+                                      float(points[-1]['Latitude']),
+                                      float(points[-1]['Longitude']))
                                   })
             # After we add first point in points list - we can start calculate distance,
             # because on the next step we will have 2 points.
