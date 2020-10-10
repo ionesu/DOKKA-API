@@ -21,7 +21,7 @@ Running Flask application on [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
 (venv) $ FLASK_APP=app.py flask run
 ```
 Example of using API with cURL command line tools.
-/api/getResult/ - It is an API to retrieve results of “/getAddresses” API
+/api/getResult/ - It is an API to retrieve results of “/api/getAddresses” API
 identified by “result_id” = UUID.
 ```bash
 curl http://127.0.0.1:5000/api/getResult/<uuid_code>
